@@ -1,0 +1,8 @@
+[package]
+name = "emacs-mac-input-source"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+core-foundation = "0.10.0"
