@@ -63,9 +63,13 @@ extern "C" {
     fn TISCopyInputSourceForLanguage(language: CFStringRef) -> TISInputSourceRef;
 
     fn TISGetInputSourceProperty(input_source: TISInputSourceRef, key: CFStringRef) -> *const c_void;
+
     fn TISCreateInputSourceList(props: CFDictionaryRef, include_all_installed: Boolean) -> CFArrayRef;
+    fn TISCreateASCIICapableInputSourceList() -> CFArrayRef;
+
     fn TISSelectInputSource(source: TISInputSourceRef) -> OSStatus;
     fn TISDeselectInputSource(source: TISInputSourceRef) -> OSStatus;
+    fn TISSetInputMethodKeyboardLayoutOverride(layout: TISInputSourceRef) -> OSStatus;
 }
 
 macro_rules! with_properties {
@@ -195,11 +199,8 @@ impl TISInputSource {
         } )
     }
 
-    pub fn new_list(filters: &TISInputSourceProperties, include_all_installed: bool) -> Vec<Self> {
-        let filters_dict = filters.to_dict();
+    fn _wrap_create_list(results: CFArrayRef) -> Vec<Self> {
         unsafe {
-            let results = TISCreateInputSourceList(filters_dict.as_concrete_TypeRef(),
-                                                   include_all_installed as Boolean);
             if results == std::ptr::null() {
                 Vec::new()
             } else {
@@ -208,6 +209,21 @@ impl TISInputSource {
                     .map(|x| TISInputSource::wrap_under_get_rule(*x as TISInputSourceRef))
                     .collect()
             }
+        }
+    }
+
+    pub fn new_list(filters: &TISInputSourceProperties, include_all_installed: bool) -> Vec<Self> {
+        let filters_dict = filters.to_dict();
+        unsafe {
+            let results = TISCreateInputSourceList(filters_dict.as_concrete_TypeRef(),
+                                                   include_all_installed as Boolean);
+            Self::_wrap_create_list(results)
+        }
+    }
+
+    pub fn new_ascii_capable_list() -> Vec<Self> {
+        unsafe {
+            Self::_wrap_create_list(TISCreateASCIICapableInputSourceList())
         }
     }
 
@@ -227,6 +243,9 @@ impl TISInputSource {
     }
     pub fn deselect(&self) -> Result<()> {
         wrap_osstatus( unsafe { TISDeselectInputSource(self.0) } )
+    }
+    pub fn set_keyboard_layout_override(&self) -> Result<()> {
+        wrap_osstatus( unsafe { TISSetInputMethodKeyboardLayoutOverride(self.0) } )
     }
 }
 
@@ -251,10 +270,10 @@ macro_rules! gen_get_properties_field {
 
 macro_rules! gen_get_properties {
     ($([ $key:ident, $type:ident, $field:ident ]),* ) => {
-        pub fn get_properties(&self) -> TISInputSourceProperties {
+        pub fn get_properties(&self) -> Result<TISInputSourceProperties> {
             let mut result = TISInputSourceProperties::default();
             $( gen_get_properties_field!(self, result, $key, $type, $field); )*
-            result
+            Ok(result)
         }
     }
 }
