@@ -8,12 +8,12 @@ These functions can be used for querying and switching input sources in emacs.
 There's several ways to query or switch input sources in macOS in Emacs:
 
 1. Command line tools like [fcitx-remote-for-osx](https://github.com/xcodebuild/fcitx-remote-for-osx) using `TISSelectInputSource` API.
-However, they does not work properly when switching to CJKV input sources due to a macOS bug.
+However, they does not work properly when switching to CJKV input sources due to a well-known macOS [bug](https://github.com/pqrs-org/Karabiner-Elements/issues/1602).
 2. Command line tool [macism](https://github.com/laishulu/macism).
-It overcomes the above bug by emulating keyboard shortcuts, which seems unreliable and hacky to me.
+It overcomes the above bug by emulating keyboard shortcuts. It works, but the method seems unreliable and hacky to me.
 3. [Mituharu emacs-mac port](https://bitbucket.org/mituharu/emacs-mac/) supports `mac-input-source`, `mac-select-input-source` functions
 natively. These functions also uses `TISSelectInputSource` API but they work reliably, because
-apparently the bug does not happen when the API is calling from the application itself [ref](https://github.com/pqrs-org/Karabiner-Elements/issues/1602#issuecomment-605628367).
+apparently the bug does not happen when the API is calling from the application itself ([ref](https://github.com/pqrs-org/Karabiner-Elements/issues/1602#issuecomment-605628367)).
 
 The emacs-mac port seems to be the best option here.
 However, that project does not seem to be very active, neither does it provide up-to-date emacs versions.
