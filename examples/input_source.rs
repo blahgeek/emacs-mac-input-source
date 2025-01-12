@@ -14,7 +14,8 @@ fn do_list() {
             is_selected: Some(selected),
             ..
         } = props {
-            println!("{} {} ({})", if selected { "*" } else { " " }, id, name)
+            println!("{} {} ({})", if selected { "*" } else { " " }, id, name);
+            println!("{:?}\n", props);
         }
     }
 }

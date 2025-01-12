@@ -47,9 +47,17 @@ extern "C" {
     static kTISPropertyBundleID: CFStringRef;  // -> CFStringRef
     static kTISPropertyInputModeID: CFStringRef;  // -> CFStringRef
     static kTISPropertyLocalizedName: CFStringRef;  // -> CFStringRef
+    static kTISPropertyInputSourceLanguages: CFStringRef;  // -> CFStringRef
 
     fn TISInputSourceGetTypeId() -> CFTypeID;
+
     fn TISCopyCurrentKeyboardInputSource() -> TISInputSourceRef;
+    fn TISCopyCurrentKeyboardLayoutInputSource() -> TISInputSourceRef;
+    fn TISCopyCurrentASCIICapableKeyboardInputSource() -> TISInputSourceRef;
+    fn TISCopyCurrentASCIICapableKeyboardLayoutInputSource() -> TISInputSourceRef;
+    fn TISCopyInputMethodKeyboardLayoutOverride() -> TISInputSourceRef;
+    fn TISCopyInputSourceForLanguage(language: CFStringRef) -> TISInputSourceRef;
+
     fn TISGetInputSourceProperty(input_source: TISInputSourceRef, key: CFStringRef) -> *const c_void;
     fn TISCreateInputSourceList(props: CFDictionaryRef, include_all_installed: Boolean) -> CFArrayRef;
     fn TISSelectInputSource(source: TISInputSourceRef) -> OSStatus;
@@ -81,6 +89,8 @@ macro_rules! gen_cb_struct {
             $(
                 pub $field : Option<$type>,
             )*
+            // some special cases. not used for filtering
+            pub languages: Vec<String>,
         }
     };
 }
@@ -117,10 +127,34 @@ impl TISInputSourceProperties {
 }
 
 impl TISInputSource {
-    pub fn current_keyboard() -> Self {
-        unsafe {
-            Self::wrap_under_create_rule(TISCopyCurrentKeyboardInputSource())
+    fn _wrap_create(source: TISInputSourceRef) -> Option<Self> {
+        if source != std::ptr::null() {
+            unsafe { Some(Self::wrap_under_create_rule(source)) }
+        } else {
+            None
         }
+    }
+
+    pub fn new_current_keyboard() -> Option<Self> {
+        Self::_wrap_create(unsafe { TISCopyCurrentKeyboardInputSource() })
+    }
+    pub fn new_current_keyboard_layout() -> Option<Self> {
+        Self::_wrap_create(unsafe { TISCopyCurrentKeyboardLayoutInputSource() })
+    }
+    pub fn new_current_ascii_capable_keyboard() -> Option<Self> {
+        Self::_wrap_create(unsafe { TISCopyCurrentASCIICapableKeyboardInputSource() })
+    }
+    pub fn new_current_ascii_capable_keyboard_layout() -> Option<Self> {
+        Self::_wrap_create(unsafe { TISCopyCurrentASCIICapableKeyboardLayoutInputSource() })
+    }
+    pub fn new_input_method_keyboard_layout_override() -> Option<Self> {
+        Self::_wrap_create(unsafe { TISCopyInputMethodKeyboardLayoutOverride() })
+    }
+    pub fn new_for_language(language: &str) -> Option<Self> {
+        Self::_wrap_create(unsafe {
+            TISCopyInputSourceForLanguage(
+                CFString::new(language).as_concrete_TypeRef())
+        } )
     }
 
     pub fn new_list(filters: &TISInputSourceProperties, include_all_installed: bool) -> Vec<Self> {
@@ -149,6 +183,19 @@ impl TISInputSource {
             }
         }
     }
+    fn get_string_list_property(&self, key: CFStringRef) -> Vec<String> {
+        unsafe {
+            let res = TISGetInputSourceProperty(self.0, key);
+            if res != std::ptr::null() {
+                CFArray::<*const c_void>::wrap_under_get_rule(res as CFArrayRef)
+                    .iter()
+                    .map(|x| CFString::wrap_under_get_rule(*x as CFStringRef).to_string())
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        }
+    }
 
     pub fn select(&self) -> Result<()> {
         wrap_osstatus( unsafe { TISSelectInputSource(self.0) } )
@@ -174,11 +221,17 @@ macro_rules! gen_get_properties {
         pub fn get_properties(&self) -> TISInputSourceProperties {
             let mut result = TISInputSourceProperties::default();
             $( gen_get_properties_field!(self, result, $key, $type, $field); )*
+            self._fill_extra_properties(&mut result);
             result
         }
     }
 }
 
 impl TISInputSource {
+    // helper function for gen_get_properties
+    fn _fill_extra_properties(&self, props: &mut TISInputSourceProperties) {
+        props.languages = self.get_string_list_property(unsafe { kTISPropertyInputSourceLanguages });
+    }
+
     with_properties!(gen_get_properties);
 }
