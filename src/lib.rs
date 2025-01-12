@@ -58,12 +58,17 @@ fn new_for_language(env: &Env, lang: String) -> Result<Value<'_>> {
 }
 
 #[emacs::defun]
-fn new_list<'e>(env: &'e Env, include_all_installed: Value<'e>) -> Result<Value<'e>> {
+fn new_list<'e>(env: &'e Env, id: Value<'e>, include_all_installed: Value<'e>) -> Result<Value<'e>> {
     // NOTE: bool does not implement FromLisp
     let include_all_installed = !include_all_installed.eq(().into_lisp(env)?);
+    let mut props = TISInputSourceProperties::default();
+    if !id.eq(().into_lisp(&env)?) {
+        // id not null
+        props.id = Some(String::from_lisp(id)?);
+    }
     _input_source_list_to_lisp(
         env,
-        TISInputSource::new_list(&TISInputSourceProperties::default(), include_all_installed)
+        TISInputSource::new_list(&props, include_all_installed)
     )
 }
 
