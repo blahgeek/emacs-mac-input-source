@@ -30,6 +30,7 @@ as those in the emacs-mac port by dynamic module, so they can be used with upstr
 - Build the dynamic module written in rust: `cargo build --release`
 - Copy and rename the built library: `cd lisp; ln -s ../target/release/libmac_input_source_dyn.dyl
 ib mac-input-source-dyn.dylib`
+- Add `(require 'mac-input-source)` to `init.el` (or use `use-package` etc.)
 
 ## Functions and difference between emacs-mac port
 
@@ -50,7 +51,14 @@ Full compatibility is expected for most use cases.
 
 ### [emacs-smart-input-source](https://github.com/laishulu/emacs-smart-input-source)
 
-Just use `'emp` method. Everything should just work.
+Just use `'emp` method according to its doc. Everything should just work. Example config:
+
+```
+(sis-ism-lazyman-config
+ "com.apple.keylayout.ABC"
+ "com.apple.inputmethod.SCIM.Shuangpin"
+ 'emp)
+```
 
 ### [fcitx.el](https://github.com/cute-jumper/fcitx.el)
 
