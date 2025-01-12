@@ -1,6 +1,8 @@
 use std::ffi::c_void;
 use std::fmt::Display;
 
+use crate::lisp_utils;
+
 use core_foundation::array::{CFArray, CFArrayRef};
 use core_foundation::base::{Boolean, CFType, CFTypeID, OSStatus, TCFType, TCFTypeRef};
 use core_foundation::boolean::CFBoolean;
@@ -24,6 +26,8 @@ pub type Result<T> = std::result::Result<T, OSStatusError>;
 fn wrap_osstatus(status: OSStatus) -> Result<()> {
     if status == 0 { Ok(()) } else { Err(OSStatusError(status)) }
 }
+
+type VecString = Vec<String>;
 
 #[repr(C)]
 pub struct __TISInputSource(c_void);
@@ -77,7 +81,8 @@ macro_rules! with_properties {
             [ kTISPropertyInputSourceID, String, id ],
             [ kTISPropertyBundleID, String, bundle_id ],
             [ kTISPropertyInputModeID, String, input_mode_id ],
-            [ kTISPropertyLocalizedName, String, localized_name ]
+            [ kTISPropertyLocalizedName, String, localized_name ],
+            [ kTISPropertyInputSourceLanguages, VecString, languages ]
         );
     };
 }
@@ -89,8 +94,6 @@ macro_rules! gen_cb_struct {
             $(
                 pub $field : Option<$type>,
             )*
-            // some special cases. not used for filtering
-            pub languages: Vec<String>,
         }
     };
 }
@@ -108,6 +111,10 @@ macro_rules! gen_to_dict_field {
                         CFBoolean::from(*v).into_CFType());
         }
     };
+    ( $self:tt, $result:ident, $key:ident, VecString, $field:ident ) => {
+        // VecString not supported for now.
+        // Only languages is VecString and it's not used for filtering anyway
+    };
 }
 
 macro_rules! gen_to_dict {
@@ -120,10 +127,41 @@ macro_rules! gen_to_dict {
     };
 }
 
+macro_rules! gen_into_lisp_field {
+    ( $self:tt, $env:ident, $result:ident, VecString, $field:ident ) => {
+        $result =
+            $env.cons(
+                $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?,
+                          lisp_utils::vec_into_lisp($env, $self.$field)?)?,
+                $result)?;
+    };
+    ( $self:tt, $env:ident, $result:ident, $type:ident, $field:ident ) => {
+        $result =
+            $env.cons(
+                $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?,
+                          $self.$field.into_lisp($env)?)?,
+                $result)?;
+    };
+}
+
+macro_rules! gen_into_lisp {
+    ($([ $key:ident, $type:ident, $field:ident ]),* ) => {
+        fn into_lisp(self, env: &emacs::Env) -> emacs::Result<emacs::Value<'_>> {
+            let mut result = ().into_lisp(env)?;
+            $( gen_into_lisp_field!(self, env, result, $type, $field); )*
+            Ok(result)
+        }
+    }
+}
+
 with_properties!(gen_cb_struct);
 
 impl TISInputSourceProperties {
     with_properties!(gen_to_dict);
+}
+
+impl emacs::IntoLisp<'_> for TISInputSourceProperties {
+    with_properties!(gen_into_lisp);
 }
 
 impl TISInputSource {
@@ -183,19 +221,6 @@ impl TISInputSource {
             }
         }
     }
-    fn get_string_list_property(&self, key: CFStringRef) -> Vec<String> {
-        unsafe {
-            let res = TISGetInputSourceProperty(self.0, key);
-            if res != std::ptr::null() {
-                CFArray::<*const c_void>::wrap_under_get_rule(res as CFArrayRef)
-                    .iter()
-                    .map(|x| CFString::wrap_under_get_rule(*x as CFStringRef).to_string())
-                    .collect()
-            } else {
-                Vec::new()
-            }
-        }
-    }
 
     pub fn select(&self) -> Result<()> {
         wrap_osstatus( unsafe { TISSelectInputSource(self.0) } )
@@ -214,6 +239,14 @@ macro_rules! gen_get_properties_field {
         $result.$field = $self.get_property::<CFBoolean>(unsafe { $key })
             .map(|s| s.into());
     };
+    ( $self:tt, $result:ident, $key:ident, VecString, $field:ident ) => {
+        $result.$field = $self.get_property::<CFArray::<*const c_void>>(unsafe { $key })
+            .map(|v| v.iter()
+                 .map(|x|
+                      unsafe { CFString::wrap_under_get_rule(*x as CFStringRef) }
+                      .to_string())
+                 .collect());
+    };
 }
 
 macro_rules! gen_get_properties {
@@ -221,17 +254,11 @@ macro_rules! gen_get_properties {
         pub fn get_properties(&self) -> TISInputSourceProperties {
             let mut result = TISInputSourceProperties::default();
             $( gen_get_properties_field!(self, result, $key, $type, $field); )*
-            self._fill_extra_properties(&mut result);
             result
         }
     }
 }
 
 impl TISInputSource {
-    // helper function for gen_get_properties
-    fn _fill_extra_properties(&self, props: &mut TISInputSourceProperties) {
-        props.languages = self.get_string_list_property(unsafe { kTISPropertyInputSourceLanguages });
-    }
-
     with_properties!(gen_get_properties);
 }

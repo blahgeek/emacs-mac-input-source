@@ -1,8 +1,12 @@
 [package]
-name = "emacs-mac-input-source"
+name = "mac-input-source-dyn"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1.0.95"
 core-foundation = "0.10.0"
+emacs = "0.19.0"
