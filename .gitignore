@@ -1,1 +1,3 @@
 /target
+*.elc
+mac-input-source-dyn.dylib
