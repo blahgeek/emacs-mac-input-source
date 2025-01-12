@@ -168,9 +168,10 @@ Return t if SOURCE could be successfully selected.  Otherwise, return
 nil."
   (when-let* ((input-source (mac-input-source--new source)))
     (condition-case nil
-        (if set-keyboard-layout-override-p
-            (mac-input-source--set-keyboard-layout-override input-source)
-          (mac-input-source--select input-source))
+        (prog1 t
+          (if set-keyboard-layout-override-p
+              (mac-input-source--set-keyboard-layout-override input-source)
+            (mac-input-source--select input-source)))
       (error nil))))
 
 (defun mac-deselect-input-source (source)
@@ -184,7 +185,8 @@ Return t if SOURCE could be successfully deselected.  Otherwise,
 return nil."
   (when-let* ((input-source (mac-input-source--new source)))
     (condition-case nil
-        (mac-input-source--deselect input-source)
+        (prog1 t
+          (mac-input-source--deselect input-source))
       (error nil))))
 
 (provide 'mac-input-source)
