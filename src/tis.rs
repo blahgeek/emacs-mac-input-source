@@ -132,19 +132,15 @@ macro_rules! gen_to_dict {
 }
 
 macro_rules! gen_into_lisp_field {
+    // convert to plist
+    // push value, then push key
     ( $self:tt, $env:ident, $result:ident, VecString, $field:ident ) => {
-        $result =
-            $env.cons(
-                $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?,
-                          lisp_utils::vec_into_lisp($env, $self.$field)?)?,
-                $result)?;
+        $result = $env.cons(lisp_utils::vec_into_lisp($env, $self.$field)?, $result)?;
+        $result = $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?, $result)?;
     };
     ( $self:tt, $env:ident, $result:ident, $type:ident, $field:ident ) => {
-        $result =
-            $env.cons(
-                $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?,
-                          $self.$field.into_lisp($env)?)?,
-                $result)?;
+        $result = $env.cons($self.$field.into_lisp($env)?, $result)?;
+        $result = $env.cons(lisp_utils::property_name_to_lisp($env, stringify!($field))?, $result)?;
     };
 }
 

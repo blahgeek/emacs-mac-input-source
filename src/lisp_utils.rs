@@ -5,7 +5,7 @@ pub fn property_name_to_lisp<'e, 's>(env: &'e Env, s: &'s str) -> Result<Value<'
     if s.starts_with("is-") {
         s = (&s[3..]).to_string() + "-p";
     }
-    env.intern(&s)
+    env.intern(&format!(":{}", &s))
 }
 
 pub fn vec_into_lisp<'e, T>(env: &'e Env, vec: Option<Vec<T>>) -> Result<Value<'e>>
