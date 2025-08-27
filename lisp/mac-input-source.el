@@ -24,6 +24,9 @@
 
 ;;; Code:
 
+(when (eq window-system 'mac)
+  (error "Function mac-input-source already provided by emacs, refuse to load"))
+
 ;; (add-to-list 'load-path ".../emacs-mac-input-source/target/debug/")
 (require 'mac-input-source-dyn)
 
@@ -191,3 +194,9 @@ return nil."
 
 (provide 'mac-input-source)
 ;;; mac-input-source.el ends here
+
+;; Set no-update-autoloads. This file should only be explicitly loaded, in case emacs already supports these functions (emacs-mac)
+
+;; Local Variables:
+;; no-update-autoloads: t
+;; End:
